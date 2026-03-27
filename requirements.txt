@@ -1,7 +1,9 @@
 fastapi
-uvicorn
+uvicorn[standard]
 psycopg2-binary
 sqlalchemy
 pgvector
 openai
 pydantic
+alembic
+python-dotenv
