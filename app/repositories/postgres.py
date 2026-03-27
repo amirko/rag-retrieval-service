@@ -1,16 +1,16 @@
 import logging
 from typing import List
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.models import DocumentModel
 from app.domain.models import Document, DocumentSearchResult
+from app.repositories.interface import DocumentRepository
 
 logger = logging.getLogger(__name__)
 
 
-class PostgresDocumentRepository:
+class PostgresDocumentRepository(DocumentRepository):
     """Postgres + pgvector implementation of :class:`DocumentRepository`."""
 
     def __init__(self, db: Session) -> None:
