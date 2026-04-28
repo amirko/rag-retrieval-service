@@ -1,76 +1,118 @@
-Create a production-ready Python FastAPI service for document indexing and retrieval using vector similarity.
+# RAG Retrieval Service – Full Specification
 
-Requirements:
+This file tracks the original requirements and subsequent additions that shaped
+this repository.
 
-General:
-- Use FastAPI
-- Use SQLAlchemy for DB access
-- Use PostgreSQL with pgvector
-- Read DATABASE_URL from environment
-- Use clean architecture (separate services)
+---
 
-Embedding:
-- Use OpenAI embeddings (text-embedding-3-small or similar)
-- Create a reusable embedding function
+## Core requirements
 
-Database:
-- Table "documents":
-  - id (int, primary key)
-  - content (text)
-  - url (text)
-  - embedding (vector(1536))
-  - created_at (timestamp)
+Build a production-ready Python FastAPI service for document indexing and
+retrieval using vector similarity, with clean architecture and an abstraction
+layer so storage/vector operations are not strongly coupled to Postgres.
 
-Endpoints:
+- FastAPI app with clean architecture separation (API layer, services,
+  repositories/adapters, domain models).
+- SQLAlchemy for DB access.
+- PostgreSQL with pgvector.
+- Read `DATABASE_URL` from environment.
+- Add logging and robust error handling.
+- Dependency injection for DB session.
+- Pydantic models for request/response.
 
-1. POST /index
-- Input:
-  {
-    "content": "string",
-    "url": "string"
-  }
-- Steps:
-  - Generate embedding for content
-  - Store content, url, embedding in DB
-- Return:
-  {
-    "id": int
-  }
+---
 
-2. POST /query
-- Input:
-  {
-    "query": "string",
-    "top_k": int
-  }
-- Steps:
-  - Generate embedding for query
-  - Perform vector similarity search using cosine distance
-  - Order by similarity
-  - Limit by top_k
-- Return:
-  [
-    {
-      "id": int,
-      "content": "string",
-      "url": "string",
-      "score": float
-    }
-  ]
+## Data model
 
-Implementation details:
-- Use pgvector SQL operator for similarity (<->)
-- Normalize score to similarity (optional but preferred)
-- Add logging
-- Add error handling
-- Use dependency injection for DB session
-- Use Pydantic models for request/response
+Table: `documents`
 
-Structure:
-- main app
-- embedding service
-- repository layer
+| Column       | Type             | Notes             |
+|--------------|------------------|-------------------|
+| `id`         | int              | primary key       |
+| `content`    | text             |                   |
+| `url`        | text             |                   |
+| `embedding`  | vector(1536)     | pgvector column   |
+| `created_at` | timestamp        | auto-set by DB    |
 
-Keep code clean, modular, and readable.
+---
 
-Also add delete methods for the API. Use an interface for loose coupling for persistence, in the future we might use another datastore.
+## Embedding
+
+- Use OpenAI embeddings (`text-embedding-3-small` or similar).
+- Implement a reusable embedding function/service.
+- Read OpenAI API key from environment (`OPENAI_API_KEY`).
+
+---
+
+## Endpoints
+
+### 1. `POST /index`
+
+**Request JSON**
+```json
+{ "content": "string", "url": "string" }
+```
+
+**Steps**
+1. Generate embedding for `content`.
+2. Store `content`, `url`, `embedding` in DB.
+
+**Response JSON**
+```json
+{ "id": 1 }
+```
+
+---
+
+### 2. `POST /query`
+
+**Request JSON**
+```json
+{ "query": "string", "top_k": 5 }
+```
+
+**Steps**
+1. Generate embedding for `query`.
+2. Perform vector similarity search using cosine distance.
+3. Order by similarity, limit to `top_k`.
+
+**Response JSON**
+```json
+[
+  { "id": 1, "content": "string", "url": "string", "score": 0.95 }
+]
+```
+
+- Use pgvector SQL operator `<->` for similarity.
+- Normalize score to similarity (preferred): `score = 1 - distance / 2`
+
+---
+
+### 3. `DELETE /documents/{id}`
+
+- Delete a document by id.
+- Return **204 No Content** on success.
+- Return **404** if not found.
+
+---
+
+## Abstraction / interface requirement
+
+Introduce an interface/protocol for data/vector operations (CRUD + vector
+search) so the core service is **not** strongly coupled to Postgres.
+
+- Implement a Postgres+pgvector adapter that fulfils this interface.
+- Organise code so swapping the backend (e.g. another vector DB) requires
+  changing only adapter wiring.
+
+---
+
+## Operational / project updates
+
+- Environment config (`.env.example`) for `DATABASE_URL` and `OPENAI_API_KEY`.
+- Startup checks (ensure pgvector extension exists).
+- Alembic migrations for schema setup.
+- Dockerfile + docker-compose for running the API and a Postgres+pgvector
+  database locally.
+- README with run instructions and API examples.
+- This file (`PROMPT.md`) containing the full specification.

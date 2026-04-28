@@ -7,3 +7,6 @@ openai
 pydantic
 alembic
 python-dotenv
+requests
+python-docx
+PyMuPDF

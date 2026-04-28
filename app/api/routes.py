@@ -1,14 +1,14 @@
-import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.schemas import IndexRequest, IndexResponse, QueryRequest, QueryResultItem
+from app.api.schemas import IndexRequest, IndexResponse, QueryRequest, QueryResultItem, GenerateDocumentRequest, GenerateDocumentResponse
 from app.db.session import get_db
 from app.repositories.postgres import PostgresDocumentRepository
 from app.services.document import DocumentService
 
+import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -24,12 +24,12 @@ def index_document(
     request: IndexRequest,
     service: DocumentService = Depends(_get_service),
 ) -> IndexResponse:
-    """Generate an embedding for *content* and store the document."""
+    """Index a document by fetching its content from storage and creating embeddings."""
     try:
-        doc = service.index(content=request.content, url=request.url)
+        doc = service.index(url=request.url, protocol=request.protocol, doc_type=request.doc_type)
         return IndexResponse(id=doc.id)
     except Exception as exc:
-        logger.exception("Failed to index document")
+        logger.exception("Indexing failed")
         raise HTTPException(status_code=500, detail="Failed to index document") from exc
 
 
@@ -40,7 +40,7 @@ def query_documents(
 ) -> List[QueryResultItem]:
     """Return the most similar documents for the given query."""
     try:
-        results = service.query(query=request.query, top_k=request.top_k)
+        results = service.query(query=request.query, doc_type=request.doc_type, top_k=request.top_k)
         return [
             QueryResultItem(id=r.id, content=r.content, url=r.url, score=r.score)
             for r in results
@@ -64,3 +64,21 @@ def delete_document(
     if not found:
         raise HTTPException(status_code=404, detail="Document not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/generate", response_model=GenerateDocumentResponse, status_code=status.HTTP_200_OK)
+def generate_document(
+    request: GenerateDocumentRequest,
+    service: DocumentService = Depends(_get_service),
+) -> GenerateDocumentResponse:
+    """Generate a document of a specific type based on the provided prompt and ingested documents."""
+    try:
+        generated_content = service.generate_document(
+            doc_type=request.doc_type,
+            prompt=request.prompt,
+            top_k=request.top_k
+        )
+        return GenerateDocumentResponse(content=generated_content)
+    except Exception as exc:
+        logger.exception("Failed to generate document")
+        raise HTTPException(status_code=500, detail="Failed to generate document") from exc

@@ -18,19 +18,73 @@ services:
       timeout: 5s
       retries: 10
 
-  app:
-    build: .
-    container_name: rag-app
+  ollama-embedding:
+    image: ollama/ollama:latest
+    container_name: ollama-embedding
     ports:
-      - "8000:8000"
+      - "11434:11434"
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/rag_db
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-    depends_on:
-      db:
-        condition: service_healthy
+      OLLAMA_HOST: 0.0.0.0:11434
+    volumes:
+      - ollama_embedding_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    entrypoint: /bin/sh
     command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      -c "ollama serve &
+      sleep 10 &&
+      ollama pull nomic-embed-text &&
+      wait"
+
+  ollama-generation:
+    image: ollama/ollama:latest
+    container_name: ollama-generation
+    ports:
+      - "11435:11434"
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    volumes:
+      - ollama_generation_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    entrypoint: /bin/sh
+    command: >
+      -c "ollama serve &
+      sleep 10 &&
+      ollama pull mistral &&
+      wait"
+
+  # app:
+  #   build: .
+  #   container_name: rag-app
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     DATABASE_URL: postgresql://postgres:postgres@db:5432/rag_db
+  #     OPENAI_API_KEY: ${OPENAI_API_KEY}
+  #     OLLAMA_BASE_URL: http://ollama-generation:11434
+  #     OLLAMA_EMBEDDING_BASE_URL: http://ollama-embedding:11434
+  #     OLLAMA_MODEL: mistral
+  #     OLLAMA_EMBEDDING_MODEL: nomic-embed-text
+  #     EMBEDDING_PROVIDER: ollama
+  #     LLM_PROVIDER: ollama
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     ollama-embedding:
+  #       condition: service_healthy
+  #     ollama-generation:
+  #       condition: service_healthy
+  #   command: >
+  #     sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
 volumes:
   pgdata:
+  ollama_embedding_data:
+  ollama_generation_data:

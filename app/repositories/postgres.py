@@ -22,7 +22,7 @@ class PostgresDocumentRepository(DocumentRepository):
         self._db.commit()
         self._db.refresh(doc)
         logger.info("Stored document id=%s url=%s", doc.id, doc.url)
-        return Document(id=doc.id, content=doc.content, url=doc.url, created_at=doc.created_at)
+        return Document(id=doc.id, content=doc.content, url=doc.url, created_at=doc.created_at, embedding=doc.embedding, doc_type=doc.doc_type)
 
     def search(self, query_embedding: List[float], top_k: int) -> List[DocumentSearchResult]:
         # Use pgvector cosine distance operator <->
